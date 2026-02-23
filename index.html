@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funeral &amp; Burial Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0a0a0f;--surface:#13131f;--card:#1a1a2e;--border:#2a2a3e;
+    --text:#e0dfe4;--muted:#8886a0;--accent:#7c6fcd;--accent2:#c49b5f;
+    --green:#4caf7a;--red:#e05555;--blue:#5b8def;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+  
+  /* --- NAV --- */
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .topbar h1{font-size:18px;font-weight:600;letter-spacing:1px}
+  .topbar h1 span{color:var(--accent2)}
+  .nav-tabs{display:flex;gap:4px}
+  .nav-tab{background:none;border:1px solid transparent;color:var(--muted);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+  .nav-tab:hover{color:var(--text);background:var(--card)}
+  .nav-tab.active{color:var(--accent);border-color:var(--accent);background:rgba(124,111,205,.08)}
+
+  /* --- LAYOUT --- */
+  .page{display:none;padding:20px;max-width:1400px;margin:0 auto}
+  .page.active{display:block}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  /* --- CARDS --- */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;opacity:0;transform:translateY(20px)}
+  .card h3{font-size:14px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+  .card.full{grid-column:1/-1}
+  .stat-val{font-size:32px;font-weight:700}
+  .stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+  .stat-change{font-size:12px;margin-top:6px}
+  .stat-change.up{color:var(--green)}
+  .stat-change.down{color:var(--red)}
+
+  /* --- 3D --- */
+  #cemetery-3d{width:100%;height:420px;border-radius:8px;overflow:hidden;cursor:grab}
+  #cemetery-3d:active{cursor:grabbing}
+  .three-legend{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap}
+  .three-legend span{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .three-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+  /* --- TABLE --- */
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl th{text-align:left;padding:10px 12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .tbl td{padding:10px 12px;border-bottom:1px solid rgba(42,42,62,.5)}
+  .tbl tr:hover td{background:rgba(124,111,205,.04)}
+  .badge{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .badge.ground{background:rgba(76,175,122,.15);color:var(--green)}
+  .badge.cremation{background:rgba(224,85,85,.15);color:var(--red)}
+  .badge.mausoleum{background:rgba(91,141,239,.15);color:var(--blue)}
+  .badge.paid{background:rgba(76,175,122,.15);color:var(--green)}
+  .badge.partial{background:rgba(196,155,79,.15);color:var(--accent2)}
+  .badge.pending{background:rgba(224,85,85,.15);color:var(--red)}
+
+  /* --- ERD --- */
+  .erd-wrap{overflow-x:auto;padding:10px 0}
+  .erd-wrap pre{font-size:11px;line-height:1.4;color:var(--accent);white-space:pre;font-family:'Cascadia Code','Fira Code',monospace}
+
+  /* --- CHART CONTAINERS --- */
+  .chart-wrap{position:relative;width:100%;max-height:280px}
+  .chart-wrap canvas{width:100%!important;max-height:280px}
+
+  /* --- FORM --- */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .form-group{display:flex;flex-direction:column;gap:4px}
+  .form-group.full{grid-column:1/-1}
+  .form-group label{font-size:12px;color:var(--muted)}
+  .form-group input,.form-group select,.form-group textarea{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;outline:none;transition:border .2s}
+  .form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+  .btn{padding:10px 20px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#6b5ebf}
+  .btn-ghost{background:none;border:1px solid var(--border);color:var(--muted)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .form-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+
+  /* --- TOAST --- */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;opacity:0;transform:translateY(20px)}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>ETERNAL <span>REST</span> &mdash; Burial Management</h1>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="dashboard">Dashboard</button>
+    <button class="nav-tab" data-page="cemetery">3D Cemetery</button>
+    <button class="nav-tab" data-page="records">Records</button>
+    <button class="nav-tab" data-page="intake">New Intake</button>
+    <button class="nav-tab" data-page="erd">ERD Schema</button>
+  </div>
+</div>
+
+<!-- ========== DASHBOARD ========== -->
+<div class="page active" id="pg-dashboard">
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="card" id="stat1"><div class="stat-val">1,247</div><div class="stat-label">Total Interments</div><div class="stat-change up">+12 this month</div></div>
+    <div class="card" id="stat2"><div class="stat-val">$2.4M</div><div class="stat-label">Revenue YTD</div><div class="stat-change up">+8.3% vs last year</div></div>
+    <div class="card" id="stat3"><div class="stat-val">342</div><div class="stat-label">Available Plots</div><div class="stat-change down">-18 this quarter</div></div>
+    <div class="card" id="stat4"><div class="stat-val">97%</div><div class="stat-label">Collections Rate</div><div class="stat-change up">+2.1%</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Burials by Type (Monthly)</h3><div class="chart-wrap"><canvas id="chartBurialType"></canvas></div></div>
+    <div class="card"><h3>Revenue Breakdown</h3><div class="chart-wrap"><canvas id="chartRevenue"></canvas></div></div>
+    <div class="card"><h3>Services Scheduled (12 Months)</h3><div class="chart-wrap"><canvas id="chartServices"></canvas></div></div>
+    <div class="card"><h3>Payment Status Distribution</h3><div class="chart-wrap"><canvas id="chartPayments"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ========== 3D CEMETERY ========== -->
+<div class="page" id="pg-cemetery">
+  <div class="card" style="opacity:1;transform:none">
+    <h3>Interactive Cemetery Map &mdash; Oakwood Memorial Gardens</h3>
+    <div id="cemetery-3d"></div>
+    <div class="three-legend">
+      <span><i style="background:#4caf7a"></i> Available</span>
+      <span><i style="background:#7c6fcd"></i> Occupied</span>
+      <span><i style="background:#e05555"></i> Reserved</span>
+      <span><i style="background:#c49b5f"></i> Mausoleum</span>
+      <span><i style="background:#5b8def"></i> Cremation Niche</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RECORDS ========== -->
+<div class="page" id="pg-records">
+  <div class="card full" style="opacity:1;transform:none">
+    <h3>Recent Records</h3>
+    <table class="tbl">
+      <thead><tr><th>ID</th><th>Deceased</th><th>DOD</th><th>Burial Type</th><th>Cemetery</th><th>Plot</th><th>Contract</th><th>Balance</th><th>Status</th></tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== NEW INTAKE ========== -->
+<div class="page" id="pg-intake">
+  <div class="card full" style="opacity:1;transform:none">
+    <h3>Deceased Intake Form</h3>
+    <form id="intake-form" class="form-grid">
+      <div class="form-group"><label>First Name</label><input type="text" id="f-fname" required></div>
+      <div class="form-group"><label>Last Name</label><input type="text" id="f-lname" required></div>
+      <div class="form-group"><label>Date of Birth</label><input type="date" id="f-dob"></div>
+      <div class="form-group"><label>Date of Death</label><input type="date" id="f-dod"></div>
+      <div class="form-group"><label>Gender</label><select id="f-gender"><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <div class="form-group"><label>Religion</label><input type="text" id="f-religion"></div>
+      <div class="form-group"><label>Veteran Status</label><select id="f-veteran"><option>No</option><option>Yes</option></select></div>
+      <div class="form-group"><label>Burial Type</label><select id="f-burial"><option>Ground</option><option>Mausoleum</option><option>Cremation Niche</option></select></div>
+      <div class="form-group full"><label>Next of Kin</label><input type="text" id="f-nok" placeholder="Full name, relationship, phone"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="f-notes" rows="3"></textarea></div>
+      <div class="form-actions">
+        <button type="reset" class="btn btn-ghost">Clear</button>
+        <button type="submit" class="btn btn-primary">Submit Intake</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========== ERD ========== -->
+<div class="page" id="pg-erd">
+  <div class="card full" style="opacity:1;transform:none">
+    <h3>Entity Relationship Diagram</h3>
+    <div class="erd-wrap"><pre id="erd-pre"></pre></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  DATA
+// ============================================================
+const MONTHS = ['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb'];
+const RECORDS = [
+  {id:'B-1241',name:'Margaret Sullivan',dod:'2026-02-14',type:'ground',cemetery:'Oakwood Memorial',plot:'A-14-07',contract:'$8,200',balance:'$0',status:'paid'},
+  {id:'B-1240',name:'Robert Chen',dod:'2026-02-12',type:'cremation',cemetery:'Oakwood Memorial',plot:'CN-03-18',contract:'$3,400',balance:'$1,100',status:'partial'},
+  {id:'B-1239',name:'James Whitfield',dod:'2026-02-10',type:'ground',cemetery:'Greenfield Rest',plot:'C-02-11',contract:'$9,500',balance:'$9,500',status:'pending'},
+  {id:'B-1238',name:'Dorothy Alvarez',dod:'2026-02-08',type:'mausoleum',cemetery:'Oakwood Memorial',plot:'M-01-04',contract:'$14,800',balance:'$0',status:'paid'},
+  {id:'B-1237',name:'William O\'Brien',dod:'2026-02-05',type:'ground',cemetery:'Sunset Hills',plot:'B-09-22',contract:'$7,600',balance:'$2,400',status:'partial'},
+  {id:'B-1236',name:'Patricia Yamamoto',dod:'2026-02-03',type:'cremation',cemetery:'Oakwood Memorial',plot:'CN-03-19',contract:'$3,200',balance:'$0',status:'paid'},
+  {id:'B-1235',name:'Harold Freeman',dod:'2026-01-30',type:'ground',cemetery:'Greenfield Rest',plot:'D-05-03',contract:'$8,900',balance:'$0',status:'paid'},
+  {id:'B-1234',name:'Gloria Martinez',dod:'2026-01-28',type:'mausoleum',cemetery:'Sunset Hills',plot:'M-02-08',contract:'$15,200',balance:'$5,000',status:'partial'},
+  {id:'B-1233',name:'Edward Thompson',dod:'2026-01-25',type:'ground',cemetery:'Oakwood Memorial',plot:'A-15-01',contract:'$8,400',balance:'$0',status:'paid'},
+  {id:'B-1232',name:'Ruth Nakamura',dod:'2026-01-22',type:'cremation',cemetery:'Oakwood Memorial',plot:'CN-02-11',contract:'$3,100',balance:'$0',status:'paid'},
+];
+
+const ERD_TEXT = `
+┌─────────────────────┐       ┌─────────────────────┐       ┌─────────────────────┐
+│      DECEASED        │       │     NEXT_OF_KIN      │       │       SERVICE        │
+├─────────────────────┤       ├─────────────────────┤       ├─────────────────────┤
+│ PK deceased_id       │       │ PK nok_id            │       │ PK service_id        │
+│    first_name        │       │ FK deceased_id ──────┤───┐   │ FK deceased_id       │──┐
+│    last_name         │       │    full_name         │   │   │ FK officiant_id      │  │
+│    date_of_birth     │◄──────┤    relationship      │   │   │ FK venue_id          │  │
+│    date_of_death     │  1  N │    phone             │   │   │    service_type       │  │
+│    cause_of_death    │       │    email             │   │   │    scheduled_datetime │  │
+│    gender            │       │    address           │   │   │    actual_datetime    │  │
+│    ssn               │       │    is_primary        │   │   │    status             │  │
+│    religion          │       └─────────────────────┘   │   └─────────────────────┘  │
+│    veteran_status    │                                  │                             │
+└────────┬────────────┘       ┌─────────────────────┐   │   ┌─────────────────────┐   │
+         │                    │     OFFICIANT        │   │   │       VENUE          │   │
+         │ 1                  ├─────────────────────┤   │   ├─────────────────────┤   │
+         │                    │ PK officiant_id      │───┘   │ PK venue_id          │───┘
+         ▼ N                  │    full_name         │       │    name              │
+┌─────────────────────┐       │    title             │       │    address           │
+│   BURIAL_RECORD      │       │    organization      │       │    capacity          │
+├─────────────────────┤       └─────────────────────┘       │    venue_type         │
+│ PK burial_id         │                                      └─────────────────────┘
+│ FK deceased_id       │       ┌─────────────────────┐
+│ FK cemetery_id ──────┼──────▶│      CEMETERY        │       ┌─────────────────────┐
+│ FK casket_id         │  N  1 ├─────────────────────┤       │      PAYMENT         │
+│    plot_section      │       │ PK cemetery_id       │       ├─────────────────────┤
+│    plot_number       │       │    name              │       │ PK payment_id        │
+│    burial_date       │       │    address           │       │ FK contract_id ──────┤──┐
+│    burial_type       │       │    city, state, zip  │       │    amount             │  │
+│    depth             │       │    contact_name      │       │    payment_date       │  │
+│    gps_lat / gps_lon │       └─────────────────────┘       │    method             │  │
+└─────────────────────┘                                      │    status             │  │
+                               ┌─────────────────────┐       └─────────────────────┘  │
+┌─────────────────────┐       │   FUNERAL_HOME       │                                 │
+│       CASKET         │       ├─────────────────────┤       ┌─────────────────────┐   │
+├─────────────────────┤       │ PK home_id           │       │      CONTRACT        │   │
+│ PK casket_id         │       │    name              │       ├─────────────────────┤   │
+│    model             │       │    license_number    │       │ PK contract_id       │◄──┘
+│    material          │       │    address           │       │ FK deceased_id       │
+│    size              │       │    director_name     │       │ FK home_id           │
+│    unit_cost         │       │    director_license  │       │ FK nok_id (signer)   │
+└─────────────────────┘       └────────┬────────────┘       │    contract_date     │
+                                       │ 1                   │    total_cost        │
+┌─────────────────────┐                ▼ N                   │    balance_due       │
+│   EMBALMING          │       ────────────────              │    preneed_flag      │
+├─────────────────────┤        CONTRACT (via FK)             │    status            │
+│ PK embalm_id         │       ────────────────              └─────────────────────┘
+│ FK deceased_id       │
+│ FK technician_id     │       ┌─────────────────────┐
+│    embalm_date       │       │  TRANSPORT           │
+│    method            │       ├─────────────────────┤
+│    chemicals_used    │       │ PK transport_id      │
+│    notes             │       │ FK deceased_id       │
+└─────────────────────┘       │    origin             │
+                               │    destination        │
+                               │    vehicle_type       │
+                               │    driver_name        │
+                               └─────────────────────┘
+`;
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+const tabs = document.querySelectorAll('.nav-tab');
+const pages = document.querySelectorAll('.page');
+let currentPage = 'dashboard';
+
+tabs.forEach(t => t.addEventListener('click', () => {
+  const target = t.dataset.page;
+  if (target === currentPage) return;
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  pages.forEach(p => p.classList.remove('active'));
+  const pg = document.getElementById('pg-' + target);
+  pg.classList.add('active');
+  currentPage = target;
+  if (target === 'dashboard') animateDashboard();
+  if (target === 'cemetery') initThreeScene();
+}));
+
+// ============================================================
+//  GSAP - DASHBOARD ENTRANCE
+// ============================================================
+function animateDashboard() {
+  const cards = document.querySelectorAll('#pg-dashboard .card');
+  gsap.fromTo(cards, 
+    { opacity: 0, y: 30 },
+    { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power3.out' }
+  );
+}
+
+// stat counter animation
+function animateCounters() {
+  const counters = [
+    { el: document.querySelector('#stat1 .stat-val'), target: 1247, prefix: '', suffix: '' },
+    { el: document.querySelector('#stat2 .stat-val'), target: 2.4, prefix: '$', suffix: 'M' },
+    { el: document.querySelector('#stat3 .stat-val'), target: 342, prefix: '', suffix: '' },
+    { el: document.querySelector('#stat4 .stat-val'), target: 97, prefix: '', suffix: '%' },
+  ];
+  counters.forEach(c => {
+    const obj = { val: 0 };
+    gsap.to(obj, {
+      val: c.target,
+      duration: 1.8,
+      delay: 0.3,
+      ease: 'power2.out',
+      onUpdate: () => {
+        c.el.textContent = c.prefix + (c.target % 1 !== 0 ? obj.val.toFixed(1) : Math.round(obj.val).toLocaleString()) + c.suffix;
+      }
+    });
+  });
+}
+
+// ============================================================
+//  CHART.JS - CHARTS
+// ============================================================
+const chartDefaults = {
+  color: '#8886a0',
+  borderColor: 'rgba(42,42,62,0.6)',
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+
+function initCharts() {
+  // Burial Type - stacked bar
+  new Chart(document.getElementById('chartBurialType'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Ground', data: [42,38,45,40,48,44,50,46,43,47,41,52], backgroundColor: '#4caf7a' },
+        { label: 'Cremation', data: [28,32,30,35,33,38,36,40,37,34,39,42], backgroundColor: '#e05555' },
+        { label: 'Mausoleum', data: [8,6,9,7,10,8,7,9,6,8,7,11], backgroundColor: '#5b8def' },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+  });
+
+  // Revenue - line
+  new Chart(document.getElementById('chartRevenue'), {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Ground Burial', data: [185,162,198,176,210,194,220,202,189,207,180,228], borderColor: '#4caf7a', backgroundColor: 'rgba(76,175,122,.1)', fill: true, tension: 0.3 },
+        { label: 'Cremation', data: [56,64,60,70,66,76,72,80,74,68,78,84], borderColor: '#e05555', backgroundColor: 'rgba(224,85,85,.1)', fill: true, tension: 0.3 },
+        { label: 'Mausoleum', data: [96,72,108,84,120,96,84,108,72,96,84,132], borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,.1)', fill: true, tension: 0.3 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y + 'K' } } }, scales: { y: { ticks: { callback: v => '$' + v + 'K' } } } }
+  });
+
+  // Services - line
+  new Chart(document.getElementById('chartServices'), {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        { label: 'Funerals', data: [62,58,66,60,70,65,72,68,64,69,61,74], borderColor: '#7c6fcd', tension: 0.3, pointRadius: 3 },
+        { label: 'Memorials', data: [24,28,22,30,26,32,28,34,30,27,31,36], borderColor: '#c49b5f', tension: 0.3, pointRadius: 3 },
+        { label: 'Graveside', data: [40,36,42,38,46,42,48,44,40,45,39,50], borderColor: '#5b8def', tension: 0.3, pointRadius: 3 },
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Payment Status - doughnut
+  new Chart(document.getElementById('chartPayments'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Paid in Full', 'Partial Payment', 'Pending', 'Pre-need Plans'],
+      datasets: [{ data: [68, 18, 8, 6], backgroundColor: ['#4caf7a','#c49b5f','#e05555','#5b8def'], borderWidth: 0 }]
+    },
+    options: { responsive: true, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+// ============================================================
+//  THREE.JS - 3D CEMETERY
+// ============================================================
+let threeInited = false;
+function initThreeScene() {
+  if (threeInited) return;
+  threeInited = true;
+  const container = document.getElementById('cemetery-3d');
+  const W = container.clientWidth, H = container.clientHeight;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0a0f);
+  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.012);
+
+  const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500);
+  camera.position.set(30, 25, 30);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+
+  // Lights
+  const amb = new THREE.AmbientLight(0x334466, 0.6);
+  scene.add(amb);
+  const dir = new THREE.DirectionalLight(0xffeedd, 0.8);
+  dir.position.set(20, 30, 10);
+  dir.castShadow = true;
+  scene.add(dir);
+  const moon = new THREE.PointLight(0x8888ff, 0.4, 100);
+  moon.position.set(-15, 20, -15);
+  scene.add(moon);
+
+  // Ground
+  const groundGeo = new THREE.PlaneGeometry(80, 80);
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x1a2e1a });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Paths
+  const pathMat = new THREE.MeshLambertMaterial({ color: 0x3a3a3a });
+  [[-20,0,0,2,0.05,80],[20,0,0,2,0.05,80],[0,0,-20,80,0.05,2],[0,0,20,80,0.05,2],[0,0,0,80,0.05,1.5]].forEach(p => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(p[3],p[4],p[5]), pathMat);
+    m.position.set(p[0],0.03,p[2]);
+    scene.add(m);
+  });
+
+  // Headstones
+  const colors = { available: 0x4caf7a, occupied: 0x7c6fcd, reserved: 0xe05555 };
+  const sections = [
+    { ox: -12, oz: -12, rows: 5, cols: 8, label: 'Section A' },
+    { ox: 4, oz: -12, rows: 5, cols: 8, label: 'Section B' },
+    { ox: -12, oz: 4, rows: 5, cols: 8, label: 'Section C' },
+    { ox: 4, oz: 4, rows: 5, cols: 8, label: 'Section D' },
+  ];
+
+  const headstoneGeo = new THREE.BoxGeometry(0.6, 1.2, 0.15);
+  const baseGeo = new THREE.BoxGeometry(0.8, 0.15, 0.4);
+  const stoneGroup = new THREE.Group();
+
+  sections.forEach(sec => {
+    for (let r = 0; r < sec.rows; r++) {
+      for (let c = 0; c < sec.cols; c++) {
+        const rng = Math.random();
+        const status = rng < 0.6 ? 'occupied' : rng < 0.85 ? 'available' : 'reserved';
+        const col = colors[status];
+        const mat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.15 });
+
+        const stone = new THREE.Mesh(headstoneGeo, mat);
+        const x = sec.ox + c * 1.8;
+        const z = sec.oz + r * 2.2;
+        stone.position.set(x, 0.7, z);
+        stone.castShadow = true;
+        stoneGroup.add(stone);
+
+        const base = new THREE.Mesh(baseGeo, new THREE.MeshPhongMaterial({ color: 0x444444 }));
+        base.position.set(x, 0.08, z + 0.1);
+        stoneGroup.add(base);
+      }
+    }
+  });
+  scene.add(stoneGroup);
+
+  // Mausoleum
+  const mauGeo = new THREE.BoxGeometry(6, 4, 4);
+  const mauMat = new THREE.MeshPhongMaterial({ color: 0xc49b5f, emissive: 0xc49b5f, emissiveIntensity: 0.1 });
+  const mausoleum = new THREE.Mesh(mauGeo, mauMat);
+  mausoleum.position.set(0, 2, -30);
+  mausoleum.castShadow = true;
+  scene.add(mausoleum);
+  // roof
+  const roofGeo = new THREE.ConeGeometry(5, 2, 4);
+  const roof = new THREE.Mesh(roofGeo, new THREE.MeshPhongMaterial({ color: 0x8a7040 }));
+  roof.position.set(0, 5, -30);
+  roof.rotation.y = Math.PI / 4;
+  scene.add(roof);
+
+  // Columbarium (cremation niches)
+  const colGeo = new THREE.BoxGeometry(8, 3, 0.8);
+  const colMat = new THREE.MeshPhongMaterial({ color: 0x5b8def, emissive: 0x5b8def, emissiveIntensity: 0.1 });
+  const columbarium = new THREE.Mesh(colGeo, colMat);
+  columbarium.position.set(-30, 1.5, 0);
+  scene.add(columbarium);
+
+  // Trees
+  const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 3, 6);
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a3520 });
+  const leafGeo = new THREE.SphereGeometry(1.5, 8, 6);
+  const leafMat = new THREE.MeshLambertMaterial({ color: 0x1a4a1a });
+  [[-8,-25],[8,-25],[-25,-25],[25,-25],[-30,15],[30,15],[-25,30],[25,30],[0,30]].forEach(([tx,tz]) => {
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.set(tx, 1.5, tz);
+    scene.add(trunk);
+    const leaves = new THREE.Mesh(leafGeo, leafMat);
+    leaves.position.set(tx, 3.5 + Math.random() * 0.5, tz);
+    leaves.scale.setScalar(0.8 + Math.random() * 0.5);
+    scene.add(leaves);
+  });
+
+  // GSAP entrance
+  gsap.from(camera.position, { y: 60, z: 60, duration: 2, ease: 'power2.out' });
+  gsap.from(stoneGroup.position, { y: -5, duration: 1.5, delay: 0.3, ease: 'back.out(1.2)' });
+
+  // Mouse orbit
+  let isDrag = false, prevX = 0, prevY = 0, theta = Math.PI / 4, phi = Math.PI / 5, radius = 42;
+  container.addEventListener('mousedown', e => { isDrag = true; prevX = e.clientX; prevY = e.clientY; });
+  window.addEventListener('mouseup', () => isDrag = false);
+  container.addEventListener('mousemove', e => {
+    if (!isDrag) return;
+    theta -= (e.clientX - prevX) * 0.005;
+    phi = Math.max(0.1, Math.min(Math.PI / 2.2, phi - (e.clientY - prevY) * 0.005));
+    prevX = e.clientX; prevY = e.clientY;
+  });
+  container.addEventListener('wheel', e => { radius = Math.max(15, Math.min(80, radius + e.deltaY * 0.05)); e.preventDefault(); }, { passive: false });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
+    camera.position.y = radius * Math.cos(phi);
+    camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    const w = container.clientWidth, h = container.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+}
+
+// ============================================================
+//  TABLE
+// ============================================================
+function renderTable() {
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = RECORDS.map(r => `
+    <tr>
+      <td style="color:var(--accent)">${r.id}</td>
+      <td>${r.name}</td>
+      <td>${r.dod}</td>
+      <td><span class="badge ${r.type}">${r.type.charAt(0).toUpperCase()+r.type.slice(1)}</span></td>
+      <td>${r.cemetery}</td>
+      <td style="font-family:monospace">${r.plot}</td>
+      <td>${r.contract}</td>
+      <td>${r.balance}</td>
+      <td><span class="badge ${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+//  FORM
+// ============================================================
+document.getElementById('intake-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const fname = document.getElementById('f-fname').value;
+  const lname = document.getElementById('f-lname').value;
+  showToast(`Intake recorded: ${fname} ${lname}`);
+  e.target.reset();
+  // GSAP flash
+  gsap.fromTo('#pg-intake .card', { borderColor: 'var(--green)' }, { borderColor: 'var(--border)', duration: 1.5 });
+});
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  gsap.fromTo(t, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3 });
+  gsap.to(t, { opacity: 0, y: -10, delay: 2.5, duration: 0.3 });
+}
+
+// ============================================================
+//  ERD
+// ============================================================
+document.getElementById('erd-pre').textContent = ERD_TEXT;
+
+// ============================================================
+//  INIT
+// ============================================================
+renderTable();
+initCharts();
+animateDashboard();
+animateCounters();
+</script>
+</body>
+</html>
